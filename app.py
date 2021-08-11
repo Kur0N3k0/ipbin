@@ -3,7 +3,6 @@ from contextlib import closing
 from socket import *
 from time import time
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
 import atexit
 
 app = Flask(__name__)
@@ -25,7 +24,6 @@ def accept_socket(s):
 threads = {}
 executor = ThreadPoolExecutor(10)
 atexit.register(lambda: executor.shutdown())
-lock = Lock()
 
 @app.route("/set/<key>")
 def listen(key):
@@ -35,9 +33,7 @@ def listen(key):
     s.bind(('', port))
     s.listen(1)
     
-    lock.acquire()
     threads[key] = { "start": int(time()), "future": executor.submit(accept_socket, s) }
-    lock.release()
     return jsonify({ "port": port })
 
 @app.route("/get/<key>")
@@ -45,10 +41,7 @@ def get_result(key):
     if key not in threads:
         return jsonify({ "code": -1, "result": "key not exists" })
 
-    lock.acquire()
     future = threads[key]["future"]
-    lock.release()
-
     if future.done():
         result = future.result()
         return jsonify({ "code": 0, "result": result })
